@@ -7,28 +7,25 @@
 # 
 # Обычно задача нахождения представленя сводится к обучению без учителя на большом корпусе текста. А процесс обучения основывается на том, что контекст слова тестно связан с ним самим. К примеру, контекстом может быть документ, в котором это слово находится, или соседние слова.
 
-# In[334]:
+# In[1]:
 
-import logging
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-logger=logging.getLogger(__name__)
 import gensim.matutils
 from gensim.corpora import WikiCorpus, MmCorpus, Dictionary
 from gensim.models import TfidfModel
 import pandas as pd
-import scipy.spatial
+from scipy.spatial.distance import cdist
 import sklearn.decomposition
 from collections import Counter, defaultdict
 from random import shuffle
 import collections
 import random
-
 import numpy as np
 import tensorflow as tf
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from IPython.display import Image
+from IPython.display import Image, clear_output
 from mpl_toolkits.mplot3d import Axes3D
+
 random.seed(0xFEEDF00D)
 np.random.seed(0xDEADBEEF)
 tf.set_random_seed(0xCAFEBABE)
@@ -50,6 +47,7 @@ wiki = WikiCorpus(outp+'-20170201-pages-articles.xml.bz2', lemmatize=False)
 wiki.dictionary.filter_extremes(10,0.15,keep_n=100000)
 tfidf = TfidfModel(wiki, id2word=wiki.dictionary, normalize=True)
 vm=set(map(lambda x:x.encode(),wiki.dictionary.values()))
+vocabulary_size = len(wiki.dictionary)
 
 
 # ## LSA (Latent semantic analysis)
@@ -65,37 +63,33 @@ vm=set(map(lambda x:x.encode(),wiki.dictionary.values()))
 # In[3]:
 
 svd=sklearn.decomposition.TruncatedSVD(n_components=128)
-emb_svd=svd.fit_transform(gensim.matutils.corpus2csc(tfidf[wiki],num_docs=wiki.length,num_terms=len(wiki.dictionary)))
+emb_svd=svd.fit_transform(gensim.matutils.corpus2csc(tfidf[wiki],num_docs=wiki.length,num_terms=vocabulary_size))
 del tfidf
 
 
-# In[4]:
+# In[7]:
 
-def get_nn(word,matrix,id2word,word2id,metric=scipy.spatial.distance.cosine,k=10):
+def get_nn(word,matrix,id2word,word2id,metric="cosine",k=10):
     ident=word2id(word)
-    dists=[metric(matrix[ident],i) for i in matrix]
+    v=matrix[ident].reshape(1,matrix.shape[1])
+    dists=cdist(matrix,v,metric).flatten()
     return [id2word(i) for i in np.array(dists).argsort()[:k+1] if i!=ident][:k]
-def get_sub_add_nn(word,sub,add,mat,id2word,word2id,metric=scipy.spatial.distance.cosine,k=10):
+
+def get_sub_add_nn(word,sub,add,matrix,id2word,word2id,metric="cosine",k=10):
     rest_ind=[word2id(x) for x in [word,sub,add]]
-    v=mat[word2id(word)]-mat[word2id(sub)]+mat[word2id(add)]
-    dists=[metric(v,i) for i in mat]
-    return [id2word(i) for i in np.array(dists).argsort()[:k+3] if i not in rest_ind][:k]
-def get_neighbors_dataframe(word,matrix,id2word,word2id,k=10):
-    return pd.DataFrame([
-                    get_nn(word,matrix,
-                                id2word,
-                                word2id,
-                                scipy.spatial.distance.euclidean,k),
-                    get_nn(word,matrix,
-                                id2word,
-                                word2id,
-                                scipy.spatial.distance.cosine,k),
-                    get_nn(word,matrix,
-                                id2word,
-                                word2id,
-                                scipy.spatial.distance.cityblock,k)],
-                  index=['Euclidean','Cosine','Manhattan'],
-                  columns=np.arange(1,k+1)).T
+    v=(matrix[word2id(word)]-matrix[word2id(sub)]+matrix[word2id(add)]).reshape(1,matrix.shape[1])
+    dists=cdist(matrix,v,metric).flatten()
+    return [id2word(i) for i in dists.argsort()[:k+3] if i not in rest_ind][:k]
+
+def print_neighbors(word_list,matrix,id2word,word2id,k=10):
+    metrics=["Euclidean","Cosine","Manhtattan"]
+    for word in word_list:
+        neighbors= [get_nn(word,matrix,id2word,word2id,"euclidean",k),
+                    get_nn(word,matrix,id2word,word2id,"cosine",k),
+                    get_nn(word,matrix,id2word,word2id,"cityblock",k)]
+        neighbors=list(zip(metrics,[", ".join(l) for l in neighbors]))
+        print("Nearest to "+word+":")
+        print("\n".join(": ".join(neighbor) for neighbor in neighbors),end='\n\n')
 
 
 # Наряду с евклидовой и косинусной рассмотрим манхэттенскую метрику:
@@ -103,154 +97,16 @@ def get_neighbors_dataframe(word,matrix,id2word,word2id,k=10):
 # 
 # Сравним соседей 30 слов сразу во всех трёх метриках:
 
-# In[7]:
+# In[8]:
 
-get_neighbors_dataframe('king',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0],10)
+word_list=['king','queen','russia','cat','skillful','rock','mean','variance','default','set','actor',
+           'era','performance','thousand','general','facebook','apple','apple','them','couple','river',
+           'everest','player','lasso','cube','article','exoplanet','handgun','bus','word']
 
 
-# In[296]:
+# In[9]:
 
-get_neighbors_dataframe('queen',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[297]:
-
-get_neighbors_dataframe('russia',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[298]:
-
-get_neighbors_dataframe('cat',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[299]:
-
-get_neighbors_dataframe('skillful',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[300]:
-
-get_neighbors_dataframe('rock',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[302]:
-
-get_neighbors_dataframe('mean',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[303]:
-
-get_neighbors_dataframe('variance',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[304]:
-
-get_neighbors_dataframe('default',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[305]:
-
-get_neighbors_dataframe('set',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[306]:
-
-get_neighbors_dataframe('actor',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[307]:
-
-get_neighbors_dataframe('era',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[308]:
-
-get_neighbors_dataframe('performance',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[309]:
-
-get_neighbors_dataframe('thousand',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[310]:
-
-get_neighbors_dataframe('general',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[311]:
-
-get_neighbors_dataframe('facebook',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[312]:
-
-get_neighbors_dataframe('apple',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[313]:
-
-get_neighbors_dataframe('them',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[314]:
-
-get_neighbors_dataframe('couple',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[315]:
-
-get_neighbors_dataframe('river',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[316]:
-
-get_neighbors_dataframe('everest',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[317]:
-
-get_neighbors_dataframe('player',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[318]:
-
-get_neighbors_dataframe('lasso',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[319]:
-
-get_neighbors_dataframe('cube',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[320]:
-
-get_neighbors_dataframe('article',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[321]:
-
-get_neighbors_dataframe('exoplanet',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[322]:
-
-get_neighbors_dataframe('handgun',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[323]:
-
-get_neighbors_dataframe('lipstick',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[324]:
-
-get_neighbors_dataframe('bus',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
-
-
-# In[325]:
-
-get_neighbors_dataframe('word',emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
+print_neighbors(word_list,emb_svd,lambda x: wiki.dictionary[x],lambda x: wiki.dictionary.doc2bow([x])[0][0])
 
 
 # ## word2vec
@@ -346,9 +202,7 @@ get_neighbors_dataframe('word',emb_svd,lambda x: wiki.dictionary[x],lambda x: wi
 #   * Зависимость от $T,C,D$ практически аналогичная, а так как умножение матриц будет являться неотъемлемой частью любой модели, далее исключим включающее в себя $W$ выражение из оценки сложности.
 #   * Важнее отсутствие softmax, заменённое отбором $k$ примеров не из контекста рассматриваемого слова. Так как $k<<W$ на практике, то данный этап будет работать за $O(k)$, а значит, значительно быстрее, и итоговая сложность составит $O(TCDk)$.
 
-# In[8]:
-
-vocabulary_size = len(wiki.dictionary)
+# In[10]:
 
 def build_dataset():
     count=[]
@@ -367,18 +221,16 @@ def build_dataset():
 
 
 data, count, dictionary, reverse_dictionary = build_dataset()
-print('Most common words', count[:5])
-print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
 
 data_index = 0
 
 
-# In[9]:
+# In[11]:
 
 batch_size = 256
 embedding_size = 256
-skip_window = 3             # How many words to consider left and right.
-num_skips = 4                 # How many times to reuse an input to generate a label.
+skip_window = 3
+num_skips = 4
 
 valid_size = 16
 valid_window = 100  
@@ -394,255 +246,83 @@ with graph.as_default():
     valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
 
     with tf.device('/cpu:0'):
-        embeddings = tf.Variable(
-                tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
+        embeddings = tf.Variable(tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
         embed = tf.nn.embedding_lookup(embeddings, train_inputs)
-
-        nce_weights = tf.Variable(
-                tf.truncated_normal([vocabulary_size, embedding_size],
-                                                        stddev=1.0 / np.sqrt(embedding_size)))
+        nce_weights = tf.Variable(tf.truncated_normal([vocabulary_size, embedding_size],
+                                                      stddev=1.0 / np.sqrt(embedding_size)))
         nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
-
-    loss = tf.reduce_mean(
-            tf.nn.nce_loss(weights=nce_weights,
-                                         biases=nce_biases,
-                                         labels=train_labels,
-                                         inputs=embed,
-                                         num_sampled=num_sampled,
-                                         num_classes=vocabulary_size))
+    loss = tf.reduce_mean(tf.nn.nce_loss(weights=nce_weights,biases=nce_biases,labels=train_labels,
+                                         inputs=embed,num_sampled=num_sampled,num_classes=vocabulary_size))
 
     optimizer = tf.train.AdagradOptimizer(1).minimize(loss)
 
-    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
-    normalized_embeddings = embeddings / norm
-    valid_embeddings = tf.nn.embedding_lookup(
-            normalized_embeddings, valid_dataset)
-    similarity = tf.matmul(
-            valid_embeddings, normalized_embeddings, transpose_b=True)
-
-    # Add variable initializer.
     init = tf.global_variables_initializer()
 
 
-# In[10]:
+# In[12]:
 
 def generate_batch(batch_size, num_skips, skip_window):
     global data_index
     assert batch_size % num_skips == 0
     assert num_skips <= 2 * skip_window
+    
     batch = np.ndarray(shape=(batch_size), dtype=np.int32)
     labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
-    span = 2 * skip_window + 1    # [ skip_window target skip_window ]
+    
+    span = 2 * skip_window + 1
     buffer = collections.deque(maxlen=span)
+    
     for _ in range(span):
         buffer.append(data[data_index])
         data_index = (data_index + 1) % len(data)
+        
     for i in range(batch_size // num_skips):
-        target = skip_window    # target label at the center of the buffer
-        targets_to_avoid = [skip_window]
-        for j in range(num_skips):
-            while target in targets_to_avoid:
-                target = random.randint(0, span - 1)
-            targets_to_avoid.append(target)
+        available_targets=list(range(len(buffer)))
+        available_targets.remove(skip_window)
+        targets=random.sample(available_targets,num_skips)
+        
+        for j,target in enumerate(targets):
             batch[i * num_skips + j] = buffer[skip_window]
             labels[i * num_skips + j, 0] = buffer[target]
+            
         buffer.append(data[data_index])
         data_index = (data_index + 1) % len(data)
+        
     data_index = (data_index + len(data) - span) % len(data)
     return batch, labels
 
-batch, labels = generate_batch(batch_size=8, num_skips=2, skip_window=1)
-for i in range(8):
-        print(batch[i], reverse_dictionary[batch[i]],'->', labels[i, 0], reverse_dictionary[labels[i, 0]])
 
+# In[13]:
 
-# In[236]:
-
-num_steps = 1000000
+num_steps = 500000
 
 with tf.Session(graph=graph) as session:
     init.run()
     print("Initialized")
     average_loss = 0
+    
     for step in range(num_steps):
-        batch_inputs, batch_labels = generate_batch(
-                batch_size, num_skips, skip_window)
+        batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window)
         feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
         _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
         average_loss += loss_val
 
-        if step % 20000 == 0:
+        if step % 100000 == 0:
             if step > 0:
-                average_loss /= 20000
+                average_loss /= 100000
             print("Average loss at step ", step, ": ", average_loss)
             average_loss = 0
-        if step % 100000 == 0:
-            sim = similarity.eval()
-            for i in range(valid_size):
-                valid_word = reverse_dictionary[valid_examples[i]]
-                top_k = 8    # number of nearest neighbors
-                nearest = (-sim[i, :]).argsort()[1:top_k + 1]
-                log_str = "Nearest to %s:" % valid_word
-                for k in range(top_k):
-                    close_word = reverse_dictionary[nearest[k]]
-                    log_str = "%s %s," % (log_str, close_word)
-                print(log_str)
     final_embeddings = embeddings.eval()
 
 
-# In[237]:
+# In[14]:
 
-get_neighbors_dataframe('king',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
+print_neighbors(word_list,final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[238]:
-
-get_neighbors_dataframe('queen',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[239]:
-
-get_neighbors_dataframe('russia',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[241]:
-
-get_neighbors_dataframe('cat',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[242]:
-
-get_neighbors_dataframe('skillful',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[243]:
-
-get_neighbors_dataframe('rock',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[244]:
-
-get_neighbors_dataframe('mean',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[245]:
-
-get_neighbors_dataframe('variance',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[246]:
-
-get_neighbors_dataframe('default',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[248]:
-
-get_neighbors_dataframe('set',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[249]:
-
-get_neighbors_dataframe('actor',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[250]:
-
-get_neighbors_dataframe('era',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[251]:
-
-get_neighbors_dataframe('performance',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[252]:
-
-get_neighbors_dataframe('thousand',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[253]:
-
-get_neighbors_dataframe('general',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[254]:
-
-get_neighbors_dataframe('facebook',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[255]:
-
-get_neighbors_dataframe('apple',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[256]:
-
-get_neighbors_dataframe('them',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[257]:
-
-get_neighbors_dataframe('couple',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[258]:
-
-get_neighbors_dataframe('river',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[259]:
-
-get_neighbors_dataframe('everest',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[260]:
-
-get_neighbors_dataframe('player',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[261]:
-
-get_neighbors_dataframe('lasso',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[262]:
-
-get_neighbors_dataframe('cube',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[263]:
-
-get_neighbors_dataframe('article',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[264]:
-
-get_neighbors_dataframe('exoplanet',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[265]:
-
-get_neighbors_dataframe('handgun',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[266]:
-
-get_neighbors_dataframe('lipstick',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[267]:
-
-get_neighbors_dataframe('bus',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[268]:
-
-get_neighbors_dataframe('word',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
-
-
-# In[269]:
+# In[15]:
 
 get_sub_add_nn('king','man','woman',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
@@ -665,44 +345,44 @@ get_sub_add_nn('king','man','woman',final_embeddings,lambda x: reverse_dictionar
 #    
 # Заметим, что формирующие данные смысловые отношения пары слов не единственны, поэтому вполне возможно, что на другой паре алгоритм будет давать более точные или устойчивые при испытании на большом числе экземпляров результаты.
 
-# In[270]:
+# In[16]:
 
 get_sub_add_nn('moscow','russia','germany',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[271]:
+# In[17]:
 
 get_sub_add_nn('athens','greece','japan',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[272]:
+# In[18]:
 
 get_sub_add_nn('largest','large','big',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[273]:
+# In[19]:
 
 get_sub_add_nn('small','big','fast',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[274]:
+# In[20]:
 
 get_sub_add_nn('cats','cat','tree',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[275]:
+# In[21]:
 
 get_sub_add_nn('dorsey','twitter','google',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
 # Как можно видеть, все алгоритмы кроме поиска CEO справляются с поставленной задачей хотя бы на одном примере. Также можно развить тему, создав, например, алгоритм получения произвольной формы слова (полезно с неправильными глаголами)
 
-# In[276]:
+# In[22]:
 
 get_sub_add_nn('brought','bring','come',final_embeddings,lambda x: reverse_dictionary[x],lambda x: dictionary[x])
 
 
-# In[ ]:
+# In[23]:
 
 def plot_with_labels(low_dim_embs, labels, filename):
     assert low_dim_embs.shape[0] >= len(labels), "More labels than embeddings"
@@ -717,7 +397,7 @@ def plot_with_labels(low_dim_embs, labels, filename):
         plt.close(figure)
 
 
-# In[333]:
+# In[24]:
 
 tsne = TSNE(n_components=2,perplexity=10,n_iter=1000,init='pca',random_state=0x5EED1E55)
 plot_only = 1000
@@ -773,33 +453,28 @@ Image(filename='tsne_w2v.png')
 
 # Сложность формирования матрицы $X$: $O(TC)$, так как мы проходим по всем $T$ словам из корпуса, для каждого рассматриваем $O(C)$ соседей и обновляем соответствующие таким парам ячейки матрицы.
 # Сложность обучения:
-#     * вычисление $\mathcal{L}$: введём параметр $|X|$, обозначающий число ненулевых элементов в матрице $X$. Тогда нахождение значения функции потерь имеет сложность $|X|\cdot O(WD)+O(D)$ ($|X|$ пар слов, для каждой необходимо за $O(WD)$ найти оба представления слов, затем за $O(D)$ перемножить их, остальные этапы выполняются за константное время. Таким образом, на этом этапе получаем $O(|X|WD)$.
-#     * обратное распространение ошибки: необходимо для каждого из $W$ слов найти градиент функции ошибки по обоим представлениям. Если считать, что результаты всех соответствующих скалярных произведений уже найдены при вычислении $\mathcal{L}$, а на каждой итерации цикла для отдельного слова потребуется дополнительно умножать на представление другого слова пары за $D$ шагов, то получаем опять же $O(W|X|D)$.
+# 
+#    * вычисление $\mathcal{L}$: введём параметр $|X|$, обозначающий число ненулевых элементов в матрице $X$. Тогда нахождение значения функции потерь имеет сложность $|X|\cdot O(WD)+O(D)$ ($|X|$ пар слов, для каждой необходимо за $O(WD)$ найти оба представления слов, затем за $O(D)$ перемножить их, остальные этапы выполняются за константное время. Таким образом, на этом этапе получаем $O(|X|WD)$.
+#     
+#    * обратное распространение ошибки: необходимо для каждого из $W$ слов найти градиент функции ошибки по обоим представлениям. Если считать, что результаты всех соответствующих скалярных произведений уже найдены при вычислении $\mathcal{L}$, а на каждой итерации цикла для отдельного слова потребуется дополнительно умножать на представление другого слова пары за $D$ шагов, то получаем опять же $O(W|X|D)$.
 #     
 # Таким образом, итоговая сложность составляет $O(TC+|X|WD)$. Остаётся вопрос: можно ли как-то оценить $|X|$? Очевидно, оценка в худшем случае - $W^2$, однако авторы статьи дополнительно выводят (с некоторыми допущениями) с помощью махинаций вида обобщённых гармонических чисел и дзета-функции Римана оценку в среднем вида $O(T)$, если параметр модели $\alpha<1$ и $O(T^{\frac{1}{\alpha}})$ иначе.
 # 
 # Семплирование же нулевых значений матрицы не сыграет никакой роли, за исключением того, что в функции потерь станет больше нулевых слагаемых ($f(0)=0$), то есть мы будем сдвигаться на меньшее значение, чем могли бы, по каждому из рассматриваемых в батче слов (представления слов из пары, для которой $X_{ij}=0$, не будут сдвигаться никуда в соответствующих друг другу слагаемых из-за нулевого значения этих слагаемых. Получаем, что это в каком-то смысле ухудшит модель, так как часть вычислений во время каждого цикла алгоритма будет выполняться впустую (скалярное произведение векторов слов, которые не встречаются друг рядом с другом).
 
-# In[329]:
+# In[41]:
 
 class GloVeModel():
     def __init__(self, embedding_size, context_size, max_vocab_size=100000, min_occurrences=1,
                  scaling_factor=0.75, cooccurrence_cap=100, batch_size=512, learning_rate=0.05):
         self.embedding_size = embedding_size
-        if isinstance(context_size, tuple):
-            self.left_context, self.right_context = context_size
-        elif isinstance(context_size, int):
-            self.left_context = self.right_context = context_size
-        else:
-            raise ValueError("`context_size` should be an int or a tuple of two ints")
+        self.left_context = self.right_context = context_size
         self.max_vocab_size = max_vocab_size
         self.min_occurrences = min_occurrences
         self.scaling_factor = scaling_factor
         self.cooccurrence_cap = cooccurrence_cap
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.__words = None
-        self.__word_to_id = None
         self.__cooccurrence_matrix = None
         self.__embeddings = None
 
@@ -816,82 +491,56 @@ class GloVeModel():
             word_counts.update(l)
             for l_context, word, r_context in _context_windows(l, left_size, right_size):
                 for i, context_word in enumerate(l_context[::-1]):
-                    # add (1 / distance from focal word) for this pair
                     cooccurrence_counts[(word, context_word)] += 1 / (i + 1)
                 for i, context_word in enumerate(r_context):
                     cooccurrence_counts[(word, context_word)] += 1 / (i + 1)
-        if len(cooccurrence_counts) == 0:
-            raise ValueError("No coccurrences in corpus. Did you try to reuse a generator?")
-        self.__words = [word for word, count in word_counts.most_common(vocab_size)
-                        if count >= min_occurrences]
-        self.__word_to_id = {word: i for i, word in enumerate(self.__words)}
         self.__cooccurrence_matrix = {
-            (self.__word_to_id[words[0]], self.__word_to_id[words[1]]): count
+            (dictionary[words[0]], dictionary[words[1]]): count
             for words, count in cooccurrence_counts.items()
-            if words[0] in self.__word_to_id and words[1] in self.__word_to_id}
+            if words[0] in dictionary and words[1] in dictionary}
 
 
     def __build_graph(self):
         self.__graph = tf.Graph()
-        with self.__graph.as_default(), self.__graph.device(_device_for_node):
-            with tf.device('/gpu:0'):
-                count_max = tf.constant([self.cooccurrence_cap], dtype=tf.float32,
-                                        name='max_cooccurrence_count')
-                scaling_factor = tf.constant([self.scaling_factor], dtype=tf.float32,
-                                             name="scaling_factor")
+        with self.__graph.as_default():
+            count_max = tf.constant([self.cooccurrence_cap], dtype=tf.float32)
+            scaling_factor = tf.constant([self.scaling_factor], dtype=tf.float32)
 
-                self.__focal_input = tf.placeholder(tf.int32, shape=[self.batch_size],
-                                                    name="focal_words")
-                self.__context_input = tf.placeholder(tf.int32, shape=[self.batch_size],
-                                                      name="context_words")
-                self.__cooccurrence_count = tf.placeholder(tf.float32, shape=[self.batch_size],
-                                                           name="cooccurrence_count")
+            self.__focal_input = tf.placeholder(tf.int32, shape=[self.batch_size])
+            self.__context_input = tf.placeholder(tf.int32, shape=[self.batch_size])
+            self.__cooccurrence_count = tf.placeholder(tf.float32, shape=[self.batch_size])
 
-                focal_embeddings = tf.Variable(
-                    tf.random_uniform([self.vocab_size, self.embedding_size], 1.0, -1.0),
-                    name="focal_embeddings")
-                context_embeddings = tf.Variable(
-                    tf.random_uniform([self.vocab_size, self.embedding_size], 1.0, -1.0),
-                    name="context_embeddings")
+            focal_embeddings = tf.Variable(
+                tf.random_uniform([self.vocab_size, self.embedding_size], 1.0, -1.0))
+            context_embeddings = tf.Variable(
+                tf.random_uniform([self.vocab_size, self.embedding_size], 1.0, -1.0))
 
-                focal_biases = tf.Variable(tf.random_uniform([self.vocab_size], 1.0, -1.0),
-                                           name='focal_biases')
-                context_biases = tf.Variable(tf.random_uniform([self.vocab_size], 1.0, -1.0),
-                                             name="context_biases")
+            focal_biases = tf.Variable(tf.random_uniform([self.vocab_size], 1.0, -1.0))
+            context_biases = tf.Variable(tf.random_uniform([self.vocab_size], 1.0, -1.0))
 
-                focal_embedding = tf.nn.embedding_lookup([focal_embeddings], self.__focal_input)
-                context_embedding = tf.nn.embedding_lookup([context_embeddings], self.__context_input)
-                focal_bias = tf.nn.embedding_lookup([focal_biases], self.__focal_input)
-                context_bias = tf.nn.embedding_lookup([context_biases], self.__context_input)
+            focal_embedding = tf.nn.embedding_lookup([focal_embeddings], self.__focal_input)
+            context_embedding = tf.nn.embedding_lookup([context_embeddings], self.__context_input)
+            focal_bias = tf.nn.embedding_lookup([focal_biases], self.__focal_input)
+            context_bias = tf.nn.embedding_lookup([context_biases], self.__context_input)
 
-                weighting_factor = tf.minimum(
-                    1.0,
-                    tf.pow(
-                        tf.div(self.__cooccurrence_count, count_max),
-                        scaling_factor))
+            weighting_factor = tf.minimum(1.0,tf.pow(tf.div(self.__cooccurrence_count, count_max),
+                                                     scaling_factor))
 
-                embedding_product = tf.reduce_sum(tf.mul(focal_embedding, context_embedding), 1)
+            embedding_product = tf.reduce_sum(tf.multiply(focal_embedding, context_embedding), 1)
 
-                log_cooccurrences = tf.log(tf.to_float(self.__cooccurrence_count))
+            log_cooccurrences = tf.log(tf.to_float(self.__cooccurrence_count))
 
-                distance_expr = tf.square(tf.add_n([
-                    embedding_product,
-                    focal_bias,
-                    context_bias,
-                    tf.neg(log_cooccurrences)]))
+            distance_expr = tf.square(tf.add_n([embedding_product,focal_bias,context_bias,
+                                                tf.negative(log_cooccurrences)]))
 
-                single_losses = tf.mul(weighting_factor, distance_expr)
-                self.__total_loss = tf.reduce_sum(single_losses)
-                self.__optimizer = tf.train.AdagradOptimizer(self.learning_rate).minimize(
-                    self.__total_loss)
+            single_losses = tf.multiply(weighting_factor, distance_expr)
+            self.__total_loss = tf.reduce_sum(single_losses)
+            self.__optimizer = tf.train.AdagradOptimizer(self.learning_rate).minimize(self.__total_loss)
 
-                self.__combined_embeddings = tf.add(focal_embeddings, context_embeddings,
-                                                    name="combined_embeddings")
+            self.__combined_embeddings = tf.add(focal_embeddings, context_embeddings)
 
     def train(self, num_epochs, log_dir=None, summary_batch_interval=1000,
               tsne_epoch_interval=None):
-        should_write_summaries = log_dir is not None and summary_batch_interval
-        should_generate_tsne = log_dir is not None and tsne_epoch_interval
         batches = self.__prepare_batches()
         total_steps = 0
         average_loss = 0
@@ -909,19 +558,17 @@ class GloVeModel():
                         self.__cooccurrence_count: counts}
                     _, loss_val = session.run([self.__optimizer,self.__total_loss], feed_dict=feed_dict)
                     average_loss += loss_val
-                    if total_steps % 2000 == 0:
+                    if total_steps % 500000 == 0:
                         if total_steps > 0:
-                            average_loss /= 2000
+                            average_loss /= 500000
                         print("Average loss at step ", total_steps, ": ", average_loss)
                         average_loss = 0
                     total_steps += 1
             self.__embeddings = self.__combined_embeddings.eval()
-            if should_write_summaries:
-                summary_writer.close()
 
     def embedding_for(self, word_str_or_id):
         if isinstance(word_str_or_id, str):
-            return self.embeddings[self.__word_to_id[word_str_or_id]]
+            return self.embeddings[dictionary[word_str_or_id]]
         elif isinstance(word_str_or_id, int):
             return self.embeddings[word_str_or_id]
 
@@ -936,13 +583,13 @@ class GloVeModel():
 
     @property
     def vocab_size(self):
-        return len(self.__words)
+        return len(reverse_dictionary)
 
     @property
     def words(self):
-        if self.__words is None:
+        if reverse_dictionary is None:
             raise NotFitToCorpusError("Need to fit model to corpus before accessing words.")
-        return self.__words
+        return reverse_dictionary
 
     @property
     def embeddings(self):
@@ -951,17 +598,9 @@ class GloVeModel():
         return self.__embeddings
 
     def id_for_word(self, word):
-        if self.__word_to_id is None:
+        if dictionary is None:
             raise NotFitToCorpusError("Need to fit model to corpus before looking up word ids.")
-        return self.__word_to_id[word]
-
-    def generate_tsne(self, word_count=1000, embeddings=None):
-        if embeddings is None:
-            embeddings = self.embeddings
-        tsne = TSNE(n_components=2,perplexity=10,n_iter=1000,init='pca',random_state=0x5EED1E55)
-        low_dim_embs = tsne.fit_transform(embeddings[:word_count, :])
-        labels = self.words[:word_count]
-        return plot_with_labels(low_dim_embs, labels, path)
+        return dictionary[word]
 
 
 def _context_windows(region, left_size, right_size):
@@ -974,22 +613,9 @@ def _context_windows(region, left_size, right_size):
 
 
 def _window(region, start_index, end_index):
-    """
-    Returns the list of words starting from `start_index`, going to `end_index`
-    taken from region. If `start_index` is a negative number, or if `end_index`
-    is greater than the index of the last word in region, this function will pad
-    its return value with `NULL_WORD`.
-    """
     last_index = len(region) + 1
     selected_tokens = region[max(start_index, 0):min(end_index, last_index) + 1]
     return selected_tokens
-
-
-def _device_for_node(n):
-    if n.type == "MatMul":
-        return "/gpu:0"
-    else:
-        return "/cpu:0"
 
 
 def _batchify(batch_size, *sequences):
@@ -997,60 +623,53 @@ def _batchify(batch_size, *sequences):
         yield tuple(sequence[i:i+batch_size] for sequence in sequences)
 
 
-# In[279]:
+# In[44]:
 
-model=GloVeModel(embedding_size=192,context_size=6,min_occurrences=4,batch_size=1024)
+model=GloVeModel(embedding_size=192,context_size=6,min_occurrences=4,batch_size=256)
 
 
-# In[280]:
+# In[46]:
 
 model.fit_to_corpus()
 
 
-# In[281]:
+# In[47]:
 
-model.train(50)
+model.train(10)
 
 
-# In[282]:
+# In[48]:
 
 emb_glove=model.embeddings
 
 
-# In[283]:
+# In[49]:
 
-get_nn('cat',emb_glove,lambda x: model.words[x],model.id_for_word,scipy.spatial.distance.cosine)
-
-
-# In[284]:
-
-get_nn('april',emb_glove,lambda x: model.words[x],model.id_for_word,scipy.spatial.distance.euclidean)
+get_nn('cat',emb_glove,lambda x: model.words[x],model.id_for_word,"cosine")
 
 
-# t-SNE - алгоритм понижения размерности данных, который достаточно неплохо сохраняет схожесть (в терминах расстояния Кульбака-Лейблера между распределениями) близких векторов в многомерном пространстве при их отображении в пространство меньшей размерности. Сделаем две визуализации (в двумерном и в трёхмерном пространствах):
+# In[50]:
 
-# In[332]:
+get_nn('april',emb_glove,lambda x: model.words[x],model.id_for_word,"euclidean")
 
-plot_only = 1000
 
-low_dim_embs_glove = tsne.fit_transform(emb_glove[:plot_only])
+# t-SNE - алгоритм понижения размерности данных, который достаточно неплохо сохраняет схожесть (в терминах расстояния Кульбака-Лейблера между распределениями) близких векторов в многомерном пространстве при их отображении в пространство меньшей размерности. Сделаем две визуализации (в двумерном и в трёхмерном пространствах, картинки лучше открывать в полном окне):
+
+# In[59]:
+
+low_dim_embs_glove = tsne.fit_transform(emb_glove[:10000])
+plot_only = 200
 labels_glove = [model.words[i] for i in range(plot_only)]
 
 plot_with_labels(low_dim_embs_glove, labels_glove,filename='tsne_glove.png')
 
-
 Image(filename='tsne_glove.png') 
 
 
-# In[354]:
-
-get_ipython().magic('matplotlib inline')
-
-
-# In[356]:
+# In[60]:
 
 tsne3d=TSNE(n_components=3,perplexity=10,n_iter=5000,init='pca',random_state=0x5EED1E55)
-embs3d=tsne3d.fit_transform(emb_glove[:plot_only])
+embs3d=tsne3d.fit_transform(emb_glove[:10000])
 fig = plt.figure(figsize=(20,20),dpi=200) 
 ax = fig.add_subplot(111, projection='3d')
 for i, label in enumerate(labels_glove):
@@ -1059,15 +678,15 @@ for i, label in enumerate(labels_glove):
     ax.text(x,y,z,label, ha='center',va='center')
 
 
-# In[286]:
+# In[90]:
 
-get_sub_add_nn('king','man','woman',emb_glove,lambda x: model.words[x],model.id_for_word,scipy.spatial.distance.cosine)
+from scipy.spatial.distance import cosine
+print(cosine(embs3d[dictionary['king']],embs3d[dictionary['queen']]))
+print(cosine(embs3d[dictionary['apple']],embs3d[dictionary['jobs']]))
+print(cosine(embs3d[dictionary['good']],embs3d[dictionary['better']]))
 
 
-# In[287]:
-
-get_sub_add_nn('men','man','dog',emb_glove,lambda x: model.words[x],model.id_for_word)
-
+# Как видим, косинусное расстояние довольно небольшое (за исключением CEO, причины такой ситуации оговорены выше), поэтому можно сделать вывод, что векторы близких по смыслу слов действительно стали сонаправлены.
 
 # 8 Сравните все три модели.
 # 
@@ -1075,7 +694,7 @@ get_sub_add_nn('men','man','dog',emb_glove,lambda x: model.words[x],model.id_for
 # 
 # 9 А теперь дайте остыть вашей ЖПУ и идите спать.
 
-# In[288]:
+# In[61]:
 
 questions=[]
 vocab=set(wiki.dictionary.values())
@@ -1083,34 +702,33 @@ with open('questions-words.txt') as f:
     for line in f:
         if not (line.startswith(':') or any(i not in vocab for i in line.split())):
             questions.append(list(map(lambda x: x.lower(),line.split())))
-q1,q2,q3=questions,questions,questions
 
 
-# In[290]:
+# In[69]:
 
 def eval_svd():
-    for question in q1:
+    for question in questions:
         if question[2] in get_sub_add_nn(question[0],question[1],question[3],
-                                                 emb_svd,lambda x: wiki.dictionary[x],
-                                                 lambda x: wiki.dictionary.doc2bow([x])[0][0],k=10):
+                                            emb_svd,lambda x: wiki.dictionary[x],
+                                            lambda x: wiki.dictionary.doc2bow([x])[0][0],k=10):
             arr[0]+=1
 
 def eval_w2v():
-    for question in q2:
+    for question in questions:
         if question[2] in get_sub_add_nn(question[0],question[1],question[3],
-                                                 final_embeddings,lambda x: reverse_dictionary[x],
-                                                 lambda x: dictionary[x],k=10):
+                                            final_embeddings,lambda x: reverse_dictionary[x],
+                                            lambda x: dictionary[x],k=10):
             arr[1]+=1
 
 def eval_glove():
-    for question in q3:
+    for question in questions:
         if question[2] in get_sub_add_nn(question[0],question[1],question[3],
-                                             emb_glove,lambda x: model.words[x],
-                                             model.id_for_word,k=10):
+                                            emb_glove,lambda x: reverse_dictionary[x],
+                                            lambda x: dictionary[x],k=10):
             arr[2]+=1
 
 
-# In[291]:
+# In[70]:
 
 from multiprocessing import Pool,Array
 arr=Array('i',3,lock=False)
@@ -1122,24 +740,14 @@ p.close()
 p.join()
 
 
-# In[292]:
+# In[93]:
 
-print(arr[:])
-
-
-# In[293]:
-
-r=np.array(arr[:])
+r=np.array(arr[:])/len(questions)
 
 
-# In[294]:
-
-r=r/len(q1)
-
-
-# In[295]:
+# In[94]:
 
 r
 
 
-# Выходит, что Word2Vec не зря считается лидирующим алгоритмом, особенно если учесть скорость обучения значительно более высокую, чем у GloVe.
+# Выше приведены результаты LSA, Word2Vec и GloVe соответственно. Выходит, что Word2Vec не зря считается лидирующим алгоритмом, особенно если учесть скорость обучения значительно более высокую, чем у GloVe.
