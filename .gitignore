@@ -90,3 +90,5 @@ ENV/
 
 *.csv
 .idea*
+
+*.bz2
