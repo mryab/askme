@@ -92,3 +92,7 @@ ENV/
 .idea*
 
 *.bz2
+
+main/data/
+
+*.h5
