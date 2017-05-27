@@ -1,0 +1,53 @@
+body {
+    padding-top: 1vh;
+    font-family: 'Roboto', sans-serif;
+}
+
+div.shadow {
+    margin-left: auto;
+    margin-right: auto;
+    height: 80vh;
+    padding-bottom: 2vh;
+    margin-bottom: 2vh;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-shadow: 0 0 24px #bbb;
+    background: #fff;
+    color: #666;
+    max-width: 800px;
+}
+
+.qa-container, .qa-explain-container {
+    width: 60%;
+    padding: 20px 50px 40px;
+    margin-top: 10px;
+}
+
+.qa-explain-container table th {
+    font-weight: bold;
+}
+
+.form-group > h4 {
+    text-align: center;
+}
+
+.qa-form {
+    max-width: 600px;
+    margin: auto auto;
+}
+
+.qa-form .btn {
+    width: 200px;
+}
+
+.qa-form .form-control[readonly] {
+    background-color: #fff;
+}
+
+textarea {
+    resize: none;
+}
+
+#story {
+    height: 25vh;
+}
