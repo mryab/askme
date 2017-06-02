@@ -8,21 +8,27 @@ from keras.layers import GRU, BatchNormalization, RepeatVector
 from keras.layers.wrappers import Bidirectional
 
 
-def create_model(vocab_size, story_maxlen, query_maxlen, answer_maxlen):
+def create_model(vocab_size, story_maxlen, query_maxlen, answer_maxlen, embs=None):
     input_sequence = Input((story_maxlen,))
     question = Input((query_maxlen,))
 
     hid_dim = 50
 
     context_rec = Masking()(input_sequence)
-    context_rec = Embedding(input_dim=vocab_size, output_dim=100)(context_rec)
+    if embs is not None:
+        context_rec = Embedding(input_dim=vocab_size, output_dim=100, weights=embs)(context_rec)
+    else:
+        context_rec = Embedding(input_dim=vocab_size, output_dim=100, weights=embs)(context_rec)
     context_rec = BatchNormalization()(context_rec)
     context_rec = Bidirectional(GRU(hid_dim, return_sequences=True))(context_rec)
     context_rec = BatchNormalization()(context_rec)
     context_rec = Dropout(0.15)(context_rec)
 
     question_rec = Masking()(question)
-    question_rec = Embedding(input_dim=vocab_size, output_dim=100)(question_rec)
+    if embs is not None:
+        question_rec = Embedding(input_dim=vocab_size, output_dim=100, weights=embs)(question_rec)
+    else:
+        question_rec = Embedding(input_dim=vocab_size, output_dim=100)(question_rec)
     question_rec = BatchNormalization()(question_rec)
     question_rec = Bidirectional(GRU(hid_dim))(question_rec)
     question_rec = BatchNormalization()(question_rec)
