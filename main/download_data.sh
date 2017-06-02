@@ -13,8 +13,8 @@ if [ ! -d 'babi' ];then
 fi
 echo 'Downloaded'
 
-cat 'babi/en-10k/*_train.txt' > 'babi/en-10k/all_train.txt'
-cat 'babi/en-10k/*_test.txt' > 'babi/en-10k/all_test.txt'
+cat babi/en-10k/*_train.txt > babi/en-10k/all_train.txt
+cat babi/en-10k/*_test.txt > babi/en-10k/all_test.txt
 
 if [ ! -d 'glove' ]; then
     mkdir 'glove'
