@@ -7,7 +7,10 @@
 
 ### 2. Предыдущие работы на данную тематику
 
-Посвящённых решению задачи ответов на вопросы на естественном языке нейронных сетей на момент начала работы над проектом существовало уже достаточно большое количество, например: MemN2N, Dynamic Memory Networks
+Посвящённых решению задачи ответов на вопросы на естественном языке нейронных сетей на момент начала работы над проектом существовало уже достаточно большое количество, например: 
+* [End-To-End Memory Networks](https://arxiv.org/abs/1503.08895)
+* [Dynamic Memory Networks for Visual and Textual Question Answering](https://arxiv.org/abs/1603.01417)
+* [Ask Me Even More: Dynamic Memory Tensor Networks (Extended Model)](https://arxiv.org/abs/1703.03939)
 
 ### 3. Архитектура
 
@@ -17,7 +20,18 @@
 
 На обучающей выборке достигнута точность 99%, на валидационной — 97. На значительную часть вопросов при ручной оценке сеть отвечает корректно, однако при смешивании типов задач доля правильных ответов падает.
 
-### 5. Инструкции по записи
+### 5. Инструкции по запуску
 
+Для запуска необходимы установленные Python 3 с virtualenv и CUDA, все остальные библиотеки будут установлены в процессе.
 
+```
+git clone https://github.com/mryab/askme.git
+cd askme
+virtualenv env
+source env/bin/activate
+pip install -r requirements.txt
+cd main
+./download_data.sh
+python3 server.py
+```
   
