@@ -17,7 +17,7 @@ def run():
     global model, voc, train_stories, story_maxlen, question_maxlen, word_idx
 
     train_stories, test_stories, vocab_size, story_maxlen, question_maxlen, answer_maxlen, word_idx, voc = extract_data(
-        test_data=False, lower=True)
+            test_data=False, lower=True)
 
     model = create_model(vocab_size, story_maxlen, question_maxlen, answer_maxlen)
 
@@ -25,9 +25,21 @@ def run():
     app.run(host='0.0.0.0', port=6006)
 
 
+def header():
+    headers = ["bAbI Tasks solved using just 4 RNNs!",
+               "from keras import project",
+               "Ask me anything! (not really)",
+               "Can it pass IELTS reading test?",
+               "I think my network has autism",
+               "Mary went to the ha... wrong <div>, sorry"
+               ]
+    num = np.random.randint(len(headers))
+    return headers[num]
+
+
 @app.route('/')
 def index():
-    return flask.render_template("index.html")
+    return flask.render_template("index.html", header=header())
 
 
 @app.route('/get/story', methods=['GET'])
