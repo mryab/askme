@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>{{header}}</title>
     <link rel="shortcut icon" href="../static/favicon.ico">
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://bootswatch.com/superhero/bootstrap.min.css" rel="stylesheet">
     <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet">
     <link href="../static/style.css" rel="stylesheet">
 
@@ -17,35 +17,32 @@
 </head>
 
 <body>
-<h2 class="text-center app-header">{{header}}</h2>
+<h1 class="text-center app-header">{{header}}</h1>
 <br>
-<div class="container">
-    <div class="shadow">
-        <form class="qa-form">
-            <div class="form-group">
-                <h4><label for="story">Story</label></h4>
-                <textarea class="form-control" id="story" rows="10"></textarea>
-            </div>
-            <div class="form-group">
-                <h4>
-                    <label for="question">Question</label>
-                    <i class="glyphicon glyphicon-info-sign" data-toggle="tooltip"
-                       data-placement="top" title="Use suggested question or type your own question"></i>
-                </h4>
-                <input class="form-control" id="question" autofocus
-                       autocomplete="off" spellcheck="false">
-            </div>
-            <div class="form-group">
-                <h4><label for="answer">Answer</label></h4>
-                <textarea class="form-control" id="answer" rows="5" readonly></textarea>
-            </div>
-            <br>
-            <div class="text-center">
-                <button class="btn btn-primary" id="get_answer" type="submit">Predict answer</button>
-                <button class="btn btn-warning" id="get_story" type="submit">Get new story</button>
-            </div>
-        </form>
-    </div>
+<div class="container well bs-component">
+    <form class="form-horizontal">
+        <div class="form-group">
+            <h3>Story</h3>
+            <textarea class="form-control" id="story" rows="10"></textarea>
+        </div>
+        <div class="form-group">
+            <h3>Question
+                <i class="glyphicon glyphicon-info-sign" data-toggle="tooltip"
+                   data-placement="top" title="Use suggested question or type your own question"></i>
+            </h3>
+            <input class="form-control" id="question" autofocus
+                   autocomplete="off" spellcheck="false">
+        </div>
+        <div class="form-group">
+            <h3>Answer</h3>
+            <textarea class="form-control" id="answer" rows="2" readonly></textarea>
+        </div>
+        <br>
+        <div class="text-center">
+            <button class="btn btn-success" id="get_answer" type="submit">Predict answer</button>
+            <button class="btn btn-info" id="get_story" type="submit">Get new story</button>
+        </div>
+    </form>
 </div>
 </body>
 </html>

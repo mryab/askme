@@ -1,46 +1,32 @@
 body {
     padding-top: 1vh;
-    font-family: 'Roboto', sans-serif;
 }
 
-div.shadow {
-    margin-left: auto;
-    margin-right: auto;
-    height: 80vh;
-    padding-bottom: 2vh;
-    margin-bottom: 2vh;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    box-shadow: 0 0 24px #bbb;
-    background: #fff;
-    color: #666;
+.well {
+    padding-top: 0;
+    padding-left: 30px;
+    padding-right: 30px;
     max-width: 800px;
 }
 
-.qa-container, .qa-explain-container {
-    width: 60%;
-    padding: 20px 50px 40px;
-    margin-top: 10px;
+.form-group {
+    margin-bottom: 0;
 }
 
-.qa-explain-container table th {
-    font-weight: bold;
-}
-
-.form-group > h4 {
+.form-horizontal .form-group > h3 {
     text-align: center;
 }
 
-.qa-form {
+.form-horizontal .qa-form {
     max-width: 600px;
     margin: auto auto;
 }
 
-.qa-form .btn {
-    width: 200px;
+.form-horizontal .btn {
+    width: 150px;
 }
 
-.qa-form .form-control[readonly] {
+.form-control[readonly] {
     background-color: #fff;
 }
 
@@ -49,5 +35,5 @@ textarea {
 }
 
 #story {
-    height: 25vh;
+    height: 30vh;
 }

@@ -7,7 +7,7 @@ $(function () {
 
     getStory();
 
-    $('.qa-container').find('.glyphicon-info-sign').tooltip();
+    $('.form-horizontal').find('.glyphicon-info-sign').tooltip();
 
     $getAnswer.on('click', function (e) {
         e.preventDefault();
