@@ -45,7 +45,7 @@ if train:
     model = create_model(vocab_size, story_maxlen, question_maxlen, answer_maxlen, embs=embedding_matrix)
 else:
     model = create_model(vocab_size, story_maxlen, question_maxlen, answer_maxlen)
-
+model.summary()
 if train:
     model.fit([inputs_train, queries_train], answers_train, batch_size=2000, epochs=500,
               validation_data=([inputs_test, queries_test], answers_test))
