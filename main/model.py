@@ -15,13 +15,13 @@ def create_model(vocab_size, story_maxlen, query_maxlen, answer_maxlen, embs=Non
     input_sequence = Input((story_maxlen,))
     question = Input((query_maxlen,))
 
-    hid_dim = 50
+    hid_dim = 100
 
     context_rec = Masking()(input_sequence)
     if embs is not None:
         context_rec = Embedding(input_dim=vocab_size, output_dim=100, weights=[embs])(context_rec)
     else:
-        context_rec = Embedding(input_dim=vocab_size, output_dim=100, weights=[embs])(context_rec)
+        context_rec = Embedding(input_dim=vocab_size, output_dim=100)(context_rec)
     context_rec = BatchNormalization()(context_rec)
     context_rec = Bidirectional(GRU(hid_dim, return_sequences=True))(context_rec)
     context_rec = BatchNormalization()(context_rec)

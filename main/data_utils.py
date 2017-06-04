@@ -88,9 +88,9 @@ def extract_data(challenge_type='all', test_data=True, lower=False):
     challenge = challenge_type + '_{}.txt'
     data_dir = 'data/babi/en-10k'
 
-    train_stories = get_stories(os.path.join(data_dir, challenge.format('train')), max_length=200)
+    train_stories = get_stories(os.path.join(data_dir, challenge.format('train')), max_length=100)
     if test_data:
-        test_stories = get_stories(os.path.join(data_dir, challenge.format('test')), max_length=200)
+        test_stories = get_stories(os.path.join(data_dir, challenge.format('test')), max_length=100)
     else:
         test_stories = [[[], [], []]]
     vocab = set()
